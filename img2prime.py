@@ -111,11 +111,26 @@ if __name__ == '__main__':
         description="Convert an image to ascii art digits and find a prime number close to it."
     )
     parser.add_argument('image')
-    parser.add_argument('-c', '--charset', default='8045692317')
+    parser.add_argument(
+        '-c', '--charset', default='8045692317',
+        help="Which digits should be used to represent the image, "
+             "in ascending order of brightness. default=%(default)s"
+    )
     parser.add_argument('-q', '--quiet', action='store_true')
-    methods = parser.add_mutually_exclusive_group()
-    methods.add_argument('-m', '--morph', nargs='+')
-    methods.add_argument('-a', '--ascending', action='store_true')
+    g = parser.add_argument_group('methods')
+    methods = g.add_mutually_exclusive_group()
+    methods.add_argument(
+        '-m', '--morph', nargs='+',
+        help="Generate candidates by changing only certain digits in the "
+             "ascii art image into certain other digits. Each morph is on the "
+             "form MORP... and specifies that the digit M is allowed to "
+             "change into any of the digits O, R, P, etc."
+    )
+    methods.add_argument(
+        '-a', '--ascending', action='store_true',
+        help="Generate candidates by incrementing the previous one by 2. "
+             "(this is the default method)"
+    )
     args = parser.parse_args()
 
     image = Image.open(args.image)
