@@ -34,6 +34,47 @@ def find_next_prime(number, quiet=True):
     return number
 
 
+def find_prime_by_morphing(
+        number,
+        morphs,
+        quiet=True,
+        printer=print
+):
+    trials = 0
+
+    def find_prime_by_morphing_recursive(number, recursion_depth):
+        nonlocal trials
+        digits = list(str(number))
+        for index in range(len(digits)):
+            digit = digits[-index]
+            if index >= recursion_depth:
+                break
+            try:
+                for morph in morphs[digit]:
+                    morphed = list(digits)
+                    morphed[-index] = morph
+                    morphed = ''.join(morphed)
+                    if not quiet:
+                        printer('Tested {} numbers so far.'.format(trials))
+                        printer(morphed)
+                    if miller_rabin(int(morphed)):
+                        return int(morphed)
+                    trials += 1
+                    prime = find_prime_by_morphing_recursive(
+                        morphed,
+                        recursion_depth=index,
+                    )
+                    if prime:
+                        return prime
+            except KeyError:
+                continue
+
+    return find_prime_by_morphing_recursive(
+        number,
+        recursion_depth=len(str(number)),
+    )
+
+
 def miller_rabin(n, k=10):
     """Check if a number n is probaby prime.
 
@@ -59,6 +100,12 @@ def miller_rabin(n, k=10):
     return True
 
 
+def prettyprinter(width):
+    def pretty(s):
+        print(textwrap.fill(s, width))
+    return pretty
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Convert an image to ascii art digits and find a prime number close to it."
@@ -66,6 +113,9 @@ if __name__ == '__main__':
     parser.add_argument('image')
     parser.add_argument('-c', '--charset', default='8045692317')
     parser.add_argument('-q', '--quiet', action='store_true')
+    methods = parser.add_mutually_exclusive_group()
+    methods.add_argument('-m', '--morph', nargs='+')
+    methods.add_argument('-a', '--ascending', action='store_true')
     args = parser.parse_args()
 
     image = Image.open(args.image)
@@ -74,7 +124,18 @@ if __name__ == '__main__':
         print("Base ascii art: \n\n{}".format(ascii))
 
     number = int(ascii.replace('\n', ''))
-    prime = find_next_prime(number, args.quiet)
+    if args.morph:
+        morphs = dict()
+        for morph in args.morph:
+            morphs[morph[0]] = morph[1:]
+        prime = find_prime_by_morphing(
+            number,
+            morphs,
+            quiet=args.quiet,
+            printer=prettyprinter(image.width)
+        )
+    else:
+        prime = find_next_prime(number, args.quiet)
     if not args.quiet:
         print("Prime found!")
     print(textwrap.fill(str(prime), image.width))
