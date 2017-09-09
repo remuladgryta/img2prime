@@ -50,10 +50,34 @@ def probably_prime(
     return miller_rabin(number)
 
 
-def find_next_prime(number, quiet=True, test_function=probably_prime):
+def skipahead(test_function, args):
+    skip = args.skip
+    quiet = args.quiet
+    "mute everything until we've skipped"
+    args.quiet = True
+    skipped = 0
+
+    def f(number):
+        nonlocal skipped
+        if skipped < skip:
+            if not quiet and skipped % 1000 == 0:
+                if skipped == 0:
+                    print('Skipping ahead...', end='')
+                else:
+                    print('.', end='', flush=True)
+            skipped += 1
+            if skipped == skip:
+                args.quiet = quiet
+            return False
+        else:
+            return test_function(number)
+    return f
+
+
+def find_next_prime(number, args, test_function=probably_prime):
     i = 1
     while not test_function(number):
-        if not quiet:
+        if not args.quiet:
             print("checked {} candidates".format(i))
         i += 1
         number += 2
@@ -62,12 +86,12 @@ def find_next_prime(number, quiet=True, test_function=probably_prime):
 
 def find_prime_by_morphing(
         number,
-        morphs,
-        quiet=True,
+        args,
         printer=print,
         test_function=probably_prime
 ):
     trials = 0
+    morphs = {morph[0]: morph[1:] for morph in args.morph}
 
     def find_prime_by_morphing_recursive(number, recursion_depth):
         nonlocal trials
@@ -81,7 +105,7 @@ def find_prime_by_morphing(
                     morphed = list(digits)
                     morphed[-index] = morph
                     morphed = ''.join(morphed)
-                    if not quiet:
+                    if not args.quiet:
                         printer('Tested {} numbers so far.'.format(trials))
                         printer(morphed)
                     if test_function(int(morphed)):
@@ -144,6 +168,10 @@ if __name__ == '__main__':
              "in ascending order of brightness. default=%(default)s"
     )
     parser.add_argument('-q', '--quiet', action='store_true')
+    parser.add_argument(
+        '-s', '--skip', type=int, metavar='N', default=0,
+        help="Skip testing the first N numbers generated."
+    )
     g = parser.add_argument_group('methods')
     methods = g.add_mutually_exclusive_group()
     methods.add_argument(
@@ -166,18 +194,20 @@ if __name__ == '__main__':
         print("Base ascii art: \n\n{}".format(ascii))
 
     number = int(ascii.replace('\n', ''))
+
+    test_function = probably_prime
+    if args.skip:
+        test_function = skipahead(test_function, args=args)
+
     if args.morph:
-        morphs = dict()
-        for morph in args.morph:
-            morphs[morph[0]] = morph[1:]
         prime = find_prime_by_morphing(
             number,
-            morphs,
-            quiet=args.quiet,
-            printer=prettyprinter(image.width)
+            args=args,
+            printer=prettyprinter(image.width),
+            test_function=test_function
         )
     else:
-        prime = find_next_prime(number, args.quiet)
+        prime = find_next_prime(number, args, test_function=test_function)
     if not args.quiet:
         print("Prime found!")
     print(textwrap.fill(str(prime), image.width))
